@@ -21,7 +21,7 @@
 
 ## 요구 사항
 
-- Node.js 20 이상
+- Node.js 22 이상
 - [Muvel 데스크톱 앱](https://github.com/KimuSoft/muvel-public/releases)에 로그인한 상태. 데스크톱 앱이 없으면 [`MUVEL_REFRESH_TOKEN`](#환경변수)을 직접 지정해야 합니다.
 
 ## 설치
@@ -43,6 +43,19 @@ codex mcp add muvel-mcp -- node /절대/경로/muvel-mcp/dist/index.js
 ```
 
 등록한 뒤 새 세션에서 이렇게 요청해 보세요: *"뮤블에서 내 소설 목록 보여줘"*, *"○○ 소설 1~10화 읽고 설정 충돌 찾아줘"*.
+
+## 앱 화면 실시간 반영 (선택)
+
+Muvel 앱에는 서버 변경을 받아오는 기능이 없습니다. 그래서 AI가 수정해도 열려 있는 편집기에는 회차를 나갔다 들어와야 보입니다. 아래 스크립트로 Muvel을 실행하면, MCP가 수정한 직후 그 문서가 화면에 열려 있을 때 편집기를 자동으로 다시 불러옵니다(약 0.3초).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\launch-muvel-debug.ps1
+```
+
+- **입력 중 보호**: 사용자가 입력 중이면 입력이 2.5초 멈출 때까지 기다립니다. 앱이 사용자의 입력을 먼저 저장하도록 하기 위해서입니다.
+- **저장 안 된 입력**: 앱에 아직 저장되지 않은 입력이 있으면 새로고침을 건너뜁니다.
+- **동작 원리와 보안**: Muvel의 WebView2 원격 디버깅 포트(127.0.0.1:9333)를 사용합니다. 이렇게 실행하는 동안에는 **이 PC의 다른 프로그램도 Muvel을 조작할 수 있으니**, 필요할 때만 이 방식으로 실행하세요.
+- **일반 실행 시**: Muvel을 평소처럼 실행하면 이 기능만 조용히 꺼지고, 나머지는 그대로 동작합니다.
 
 ## 동작 방식
 
@@ -91,6 +104,8 @@ Muvel 데스크톱 앱이 OS 키링(Windows 자격 증명 관리자, macOS 키�
 | `MUVEL_AUTO_SNAPSHOT=0` | 수정 전 자동 스냅샷을 끔 |
 | `MUVEL_REFRESH_TOKEN` | 키링 대신 사용할 refresh token |
 | `MUVEL_API_BASE` | API 주소 (기본값 `https://muvel.app/api`) |
+| `MUVEL_LIVE_REFRESH=0` | 앱 화면 실시간 반영을 끔 |
+| `MUVEL_CDP_PORT` | 실시간 반영에 쓸 디버깅 포트 (기본값 `9333`) |
 
 예: 읽기 전용으로 등록
 ```bash

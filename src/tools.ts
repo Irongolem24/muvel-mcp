@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { diffBlocks, isBlankBlock, plainLength, renderDoc, resolveBlockId, shortId, splitLines, trailingBlankCount, type DocKind } from "./blocks.js";
 import type { MuvelClient } from "./client.js";
+import { refreshApp } from "./live.js";
 import type { Block, Episode, WikiPage } from "./types.js";
 
 const EPISODE_TYPES: Record<number, string> = {
@@ -362,13 +363,14 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
   interface Loaded {
     blocks: Block[];
     version: number;
+    novelId: string;
   }
 
   async function loadDocument(kind: DocKind, id: string): Promise<Loaded> {
     const [meta, blocks] =
       kind === "episode" ? await Promise.all([api.episode(id), api.episodeBlocks(id)]) : await Promise.all([api.wikiPage(id), api.wikiBlocks(id)]);
     if (typeof meta.contentVersion !== "number") throw new Error("서버 응답에 contentVersion이 없어 안전하게 수정할 수 없습니다.");
-    return { blocks, version: meta.contentVersion };
+    return { blocks, version: meta.contentVersion, novelId: meta.novelId };
   }
 
   const versionMismatch = (expected: number, actual: number) =>
@@ -400,7 +402,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
     }
     let msg = `저장 완료: 유지 ${summary.kept} · 수정 ${summary.updated} · 추가 ${summary.created} · 삭제 ${summary.deleted} 블록. 새 contentVersion: ${res.newContentVersion}.${snapMsg}`;
     if (res.shouldRefetch) msg += " 경고: 서버가 저장 중 다른 변경과 병합했다고 알려왔습니다. 결과를 다시 읽어 확인하세요.";
-    return msg;
+    return msg + (await refreshApp([id, loaded.novelId]));
   }
 
   async function applyEdits(kind: DocKind, id: string, edits: { find: string; replace: string; replaceAll?: boolean }[], expectedVersion?: number) {
@@ -450,7 +452,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
       });
       let msg = `회차 생성: '${ep.title}' (#${ep.order}) · episodeId: ${ep.id}`;
       if (text?.trim()) msg += await fillNew("episode", ep.id, ep.contentVersion, text, `회차 '${ep.title}'`);
-      return msg;
+      return msg + (await refreshApp([novelId]));
     }),
   );
 
@@ -473,7 +475,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
       const patch = Object.fromEntries(Object.entries(dto).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length) return "수정할 항목이 없습니다.";
       const ep = await api.updateEpisode(episodeId, patch);
-      return `회차 정보 수정 완료: ${episodeHeader(ep)}`;
+      return `회차 정보 수정 완료: ${episodeHeader(ep)}` + (await refreshApp([episodeId, ep.novelId]));
     }),
   );
 
@@ -566,7 +568,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
         }
         msg += await fillNew("wiki", w.id, w.contentVersion, content, `위키 문서 '${w.title}'`);
       }
-      return msg;
+      return msg + (await refreshApp([novelId]));
     }),
   );
 
@@ -589,7 +591,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
       if (Object.keys(patch).length) {
         try {
           const w = await api.updateWikiPage(wikiPageId, patch);
-          out.push(`메타데이터 수정 완료:\n${wikiHeader(w)}`);
+          out.push(`메타데이터 수정 완료:\n${wikiHeader(w)}` + (await refreshApp([wikiPageId])));
         } catch (err) {
           throw new Error([...out, `메타데이터 수정 실패: ${(err as Error).message}`].join("\n"));
         }
@@ -636,7 +638,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
     guard(async ({ novelId, title, description, episodeId, blockId }) => {
       const fullBlockId = resolveBlockId(await api.episodeBlocks(episodeId), blockId);
       const clue = await api.createClue(novelId, { id: randomUUID(), title, description, reference: { kind: "setup", episodeId, blockId: fullBlockId } });
-      return `복선 등록: '${clue.title}' · clueId: ${clue.id}`;
+      return `복선 등록: '${clue.title}' · clueId: ${clue.id}` + (await refreshApp([episodeId]));
     }),
   );
 
@@ -666,7 +668,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
       const fullBlockId = resolveBlockId(await api.episodeBlocks(episodeId), blockId);
       if (remove) await api.removeClueReference(clueId, kind, episodeId, fullBlockId);
       else await api.addClueReference(clueId, kind, episodeId, fullBlockId);
-      return `복선 ${kind === "setup" ? "설치" : "회수"} 위치 ${remove ? "해제" : "연결"} 완료`;
+      return `복선 ${kind === "setup" ? "설치" : "회수"} 위치 ${remove ? "해제" : "연결"} 완료` + (await refreshApp([episodeId]));
     }),
   );
 
@@ -692,7 +694,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
         return `등장 관계 ${relations.length}건 삭제`;
       }
       await api.upsertRelations(novelId, relations);
-      return `등장 관계 ${relations.length}건 등록/갱신`;
+      return `등장 관계 ${relations.length}건 등록/갱신` + (await refreshApp([...new Set(relations.map((r) => r.episodeId))]));
     }),
   );
 
@@ -707,7 +709,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
     guard(async ({ episodeId, content, blockId }) => {
       const fullBlockId = blockId ? resolveBlockId(await api.episodeBlocks(episodeId), blockId) : undefined;
       await api.createComment(episodeId, content, fullBlockId);
-      return "코멘트 등록 완료";
+      return "코멘트 등록 완료" + (await refreshApp([episodeId]));
     }),
   );
 
@@ -737,7 +739,7 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
       const kind = target === "episode" ? "episodes" : "wiki-pages";
       const backup = await api.saveSnapshot(kind, id, "AI(MCP) 스냅샷 복원 이전");
       await api.restoreSnapshot(kind, id, snapshotId);
-      return `복원 완료. 복원 전 상태는 snapshotId: ${backup.id}에 저장되어 있습니다.`;
+      return `복원 완료. 복원 전 상태는 snapshotId: ${backup.id}에 저장되어 있습니다.` + (await refreshApp([id]));
     }),
   );
 }
