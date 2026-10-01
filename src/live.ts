@@ -7,7 +7,9 @@
 // Without the debug port this is a silent no-op.
 
 const PORT = Number(process.env.MUVEL_CDP_PORT ?? 9333);
-const ENABLED = process.env.MUVEL_LIVE_REFRESH !== "0";
+// Off by default: remounting the editor from outside once crashed React (removeChild) and the
+// app then synced an empty document over the server copy. Opt in with MUVEL_LIVE_REFRESH=1.
+const ENABLED = process.env.MUVEL_LIVE_REFRESH === "1";
 const APP_ORIGIN = "http://tauri.localhost";
 const RETRY_AFTER_MS = 30_000;
 

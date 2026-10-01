@@ -44,9 +44,12 @@ codex mcp add muvel-mcp -- node /절대/경로/muvel-mcp/dist/index.js
 
 등록한 뒤 새 세션에서 이렇게 요청해 보세요: *"뮤블에서 내 소설 목록 보여줘"*, *"○○ 소설 1~10화 읽고 설정 충돌 찾아줘"*.
 
-## 앱 화면 실시간 반영 (선택)
+## 앱 화면 실시간 반영 (실험적, 기본 꺼짐)
 
-Muvel 앱에는 서버 변경을 받아오는 기능이 없습니다. 그래서 AI가 수정해도 열려 있는 편집기에는 회차를 나갔다 들어와야 보입니다. 아래 스크립트로 Muvel을 실행하면, MCP가 수정한 직후 그 문서가 화면에 열려 있을 때 편집기를 자동으로 다시 불러옵니다(약 0.3초).
+> [!CAUTION]
+> 이 기능을 쓰던 중 앱에서 React 오류(`removeChild`)가 나고, 이어서 앱이 빈 본문을 서버에 저장해 회차 내용이 지워진 사례가 있었습니다(스냅샷으로 복구됨). 원인을 해결하기 전까지는 기본으로 꺼 두었습니다. 켜려면 `MUVEL_LIVE_REFRESH=1`을 설정해야 하고, 위험을 감수할 때만 쓰세요.
+
+Muvel 앱에는 서버 변경을 받아오는 기능이 없습니다. 그래서 AI가 수정해도 열려 있는 편집기에는 회차를 나갔다 들어와야 보입니다. `MUVEL_LIVE_REFRESH=1`을 설정하고 아래 스크립트로 Muvel을 실행하면, MCP가 수정한 직후 그 문서가 화면에 열려 있을 때 편집기를 다시 불러옵니다.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\launch-muvel-debug.ps1
@@ -104,7 +107,7 @@ Muvel 데스크톱 앱이 OS 키링(Windows 자격 증명 관리자, macOS 키�
 | `MUVEL_AUTO_SNAPSHOT=0` | 수정 전 자동 스냅샷을 끔 |
 | `MUVEL_REFRESH_TOKEN` | 키링 대신 사용할 refresh token |
 | `MUVEL_API_BASE` | API 주소 (기본값 `https://muvel.app/api`) |
-| `MUVEL_LIVE_REFRESH=0` | 앱 화면 실시간 반영을 끔 |
+| `MUVEL_LIVE_REFRESH=1` | 앱 화면 실시간 반영을 켬 (실험적, 기본 꺼짐) |
 | `MUVEL_CDP_PORT` | 실시간 반영에 쓸 디버깅 포트 (기본값 `9333`) |
 
 예: 읽기 전용으로 등록
