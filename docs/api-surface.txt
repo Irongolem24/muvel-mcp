@@ -1,0 +1,145 @@
+[this.api=t]
+  reviewLocalEpisodeApi(t,e,s) -> POST "/ai/episode-review"  body:{episodeContent:t,model:e,responseLanguage:s}
+  analyzeLocalEpisodeApi(t,e,s) -> POST "/ai/episode-analyze"  body:{episodeContent:t,model:e,responseLanguage:s}
+  proofreadEpisode(t,e,s,a,i) -> POST "/ai/episode-proofread"  body:{blocks:t,model:e,intensity:s,responseLanguage:a,expectedPointCost:i}
+  autocomplete(t,e,s) -> POST "/ai/autocomplete"  body:{beforeContent:t,afterContent:e,model:s}
+  improveExpression(t,e,s,a,i) -> POST "/ai/improve-expression"  body:{beforeContent:t,expression:e,afterContent:s,model:a,responseLanguage:i}
+  getAvgAnalysis(t) -> GET "/episodes/avg_analysis"  body:{params:t==null?void 0:{reviewAiModel:t}}
+[this.api=t]
+  get() -> GET "/announcements"
+  create(t) -> POST "/announcements"  body:t
+  delete() -> DELETE "/announcements"
+[this.api=t]
+  searchNationalKorean(t,{limit:e,offset:s,query:a,signal:i}) -> GET `/dictionary/${t}/search`  body:{params:{limit:e,offset:s,q:a},signal:i}
+[this.api=t,this.episodeId=e]
+  review(t) -> POST `episodes/${this.episodeId}/ai-review`  body:t
+  getPointQuote(t,e) -> GET `episodes/${this.episodeId}/ai-point-quote`  body:{params:{operation:t,model:e}}
+  analyze(t) -> POST `episodes/${this.episodeId}/ai-analyze`  body:t
+[this.api=t,this.episodeId=e]
+  get(t) -> GET `episodes/${this.episodeId}/blocks`  body:t
+  sync(t=[],e) -> PATCH `episodes/${this.episodeId}/blocks/sync`  body:{deltaBlocks:t,forceLatest:e?.forceLatest??!1,clientTimestamp:e?.clientTimestamp||new Date,targetVersion:e?.ta
+[this.api=t,this.episodeId=e]
+  get(t) -> GET `episodes/${this.episodeId}/canvas`  body:t
+  sync(t=[],e=[],s) -> PATCH `episodes/${this.episodeId}/canvas/sync`  body:{deltaNodes:t,deltaEdges:e,forceLatest:s?.forceLatest??!1,clientTimestamp:s?.clientTimestamp||new Date,targetV
+[this.api=t,this.episodeId=e]
+  get() -> GET `episodes/${this.episodeId}/comments`
+  create(t) -> POST `episodes/${this.episodeId}/comments`  body:t
+  delete(t) -> DELETE `episodes/${this.episodeId}/comments/${t}`
+  deleteAll() -> DELETE `episodes/${this.episodeId}/comments`
+[this.api=t,this.episodeId=e]
+  get() -> GET `episodes/${this.episodeId}/snapshots`
+  getSummary() -> GET `episodes/${this.episodeId}/snapshots`  body:{params:{view:"summary"}}
+  getDetail(t) -> GET `episodes/${this.episodeId}/snapshots/${t}`
+  save(t=o.Manual,e) -> POST `episodes/${this.episodeId}/snapshots`  body:s
+  update(t,e) -> PATCH `episodes/${this.episodeId}/snapshots/${t}`  body:e
+  delete(t) -> DELETE `episodes/${this.episodeId}/snapshots/${t}`
+  restore(t) -> POST `episodes/${this.episodeId}/snapshots/${t}/restore`
+[this.api=t,this.episodeId=e]
+  get(t) -> GET `episodes/${this.episodeId}`  body:t
+  delete() -> DELETE `episodes/${this.episodeId}`
+  update(t) -> PATCH `episodes/${this.episodeId}`  body:t
+  duplicate(t) -> POST `episodes/${this.episodeId}/duplicate`  body:t
+  getNavigation() -> GET `episodes/${this.episodeId}/navigation`
+  forceDelete() -> DELETE `/episodes/${this.episodeId}?force=true`
+  restore() -> PATCH `/episodes/${this.episodeId}/restore`
+  getVersion() -> GET `episodes/${this.episodeId}/version`
+  deleteAiRating() -> DELETE `episodes/${this.episodeId}/ai-rating`
+[this.api=t,this.clueId=e]
+  update(t) -> PATCH `/episode-clues/${this.clueId}`  body:t
+  delete() -> DELETE `/episode-clues/${this.clueId}`
+  addReference(t,e,s) -> PUT `/episode-clues/${this.clueId}/references/${t}/${e}/${s}`
+  removeReference(t,e,s) -> DELETE `/episode-clues/${this.clueId}/references/${t}/${e}/${s}`
+[this.api=t]
+  createNovelExportJob(t,e) -> POST `/exports/novels/${t}`  body:e
+  getJob(t) -> GET `/exports/jobs/${t}`
+  downloadJob(t) -> GET `/exports/jobs/${t}/download`  body:{responseType:"blob",timeout:6e5}
+[this.api=t,this.memoId=e]
+  get(t) -> GET `/memos/${this.memoId}`  body:t
+  update(t) -> PATCH `/memos/${this.memoId}`  body:t
+  delete() -> DELETE `/memos/${this.memoId}`
+[this.api=t,this.novelId=e]
+  create(t) -> POST `/novels/${this.novelId}/episodes`  body:t
+  update(t) -> PATCH `/novels/${this.novelId}/episodes`  body:t
+  getTrash() -> GET `/novels/${this.novelId}/episodes/trash`
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}/memos`  body:t
+  create(t) -> POST `/novels/${this.novelId}/memos`  body:t
+  update(t) -> PATCH `/novels/${this.novelId}/memos`  body:t
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}/permissions`  body:t
+  update(t,e) -> PATCH `/novels/${this.novelId}/permissions/${t}`  body:e
+  getMembers(t) -> GET `/novels/${this.novelId}/permissions/members`  body:t
+  getRequestLink(t) -> GET `/novels/${this.novelId}/permissions/request-link`  body:t
+  createRequestLink() -> POST `/novels/${this.novelId}/permissions/request-link`
+  disableRequestLink() -> DELETE `/novels/${this.novelId}/permissions/request-link`
+  getAccessRequests(t) -> GET `/novels/${this.novelId}/permissions/access-requests`  body:t
+  acceptAccessRequest(t) -> POST `/novels/${this.novelId}/permissions/access-requests/${t}/accept`
+  declineAccessRequest(t) -> POST `/novels/${this.novelId}/permissions/access-requests/${t}/decline`
+  addMember(t) -> POST `/novels/${this.novelId}/permissions/members`  body:t
+  updateMember(t,e) -> PATCH `/novels/${this.novelId}/permissions/members/${t}`  body:e
+  removeMember(t) -> DELETE `/novels/${this.novelId}/permissions/members/${t}`
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}/wiki-pages`  body:t
+  create(t) -> POST `/novels/${this.novelId}/wiki-pages`  body:t
+  getTrash() -> GET `/novels/${this.novelId}/wiki-pages/trash`
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}/episode-clues`  body:t
+  create(t) -> POST `/novels/${this.novelId}/episode-clues`  body:t
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}/episode-wiki-relations`  body:t
+  upsert(t) -> PUT `/novels/${this.novelId}/episode-wiki-relations`  body:t
+  remove(t,e) -> DELETE `/novels/${this.novelId}/episode-wiki-relations/${t}/${e}`
+[this.api=t,this.novelId=e]
+  get(t) -> GET `/novels/${this.novelId}`  body:t
+  update(t) -> PATCH `/novels/${this.novelId}`  body:t
+  delete() -> DELETE `/novels/${this.novelId}`
+  search(t,e) -> GET `/novels/${this.novelId}/search/v2`  body:{params:{q:t,...e}}
+[this.api=t]
+  getPatreonRefresh() -> GET "/patreon/refresh"
+  disconnectPatreon() -> GET "/patreon/disconnect"
+[this.api=t]
+  spellcheck(t,e) -> POST "/spellcheck/v2"  body:t,{params:e}
+  validateSpellcheckResults(t,e) -> POST "/ai/spellcheck-validate"  body:{errors:t,model:e?.model,responseLanguage:e?.responseLanguage,novelTitle:e?.novelTitle,customTerms:e?.customTe
+[this.api=t]
+  get(t) -> GET "/users/me/memos"  body:t
+  create(t) -> POST "/users/me/memos"  body:t
+[this.api=t]
+  get(t) -> GET "/users/me"  body:t
+  getMyNovels(t) -> GET "/users/me/novels"  body:t
+  getMyCollaborativeNovels(t) -> GET "/users/me/collaborative-novels"  body:t
+  getPointLogs(t,e) -> GET "/users/me/point-logs"  body:{...e,params:t}
+  getMyRecentNovels(t) -> GET "/users/recent-novels"  body:t
+  requestAccountDeletion() -> POST "/users/delete-account"
+  cancelAccountDeletion() -> POST "/users/cancel-deletion"
+  removeMyRecentNovel(t) -> DELETE `/users/recent-novels/${t}`
+[this.api=t]
+  getUserCount() -> GET "/users/count"
+  getUserCloudNovels(t,e) -> GET `/users/${t}/novels`  body:e
+  searchUsers(t,e) -> GET "/users/search"  body:{...e,params:t}
+  getAdminUsers(t,e) -> GET "/admin/users"  body:{...e,params:t}
+  getAdminUserPointLogs(t,e,s) -> GET `/admin/users/${t}/point-logs`  body:{...s,params:e}
+[this.api=t,this.wikiPageId=e]
+  get() -> GET `wiki-pages/${this.wikiPageId}/blocks`
+  sync(t=[],e) -> PATCH `wiki-pages/${this.wikiPageId}/blocks/sync`  body:{deltaBlocks:t,forceLatest:e?.forceLatest??!1,clientTimestamp:e?.clientTimestamp||new Date,targetVersion:e?.ta
+[this.api=t,this.wikiPageId=e]
+  get() -> GET `wiki-pages/${this.wikiPageId}/snapshots`
+  getSummary() -> GET `wiki-pages/${this.wikiPageId}/snapshots`  body:{params:{view:"summary"}}
+  getDetail(t) -> GET `wiki-pages/${this.wikiPageId}/snapshots/${t}`
+  save(t=o.Manual,e) -> POST `wiki-pages/${this.wikiPageId}/snapshots`  body:s
+  update(t,e) -> PATCH `wiki-pages/${this.wikiPageId}/snapshots/${t}`  body:e
+  delete(t) -> DELETE `wiki-pages/${this.wikiPageId}/snapshots/${t}`
+  restore(t) -> POST `wiki-pages/${this.wikiPageId}/snapshots/${t}/restore`
+[this.api=t,this.wikiPageId=e]
+  get(t) -> GET `wiki-pages/${this.wikiPageId}`  body:t
+  delete() -> DELETE `wiki-pages/${this.wikiPageId}`
+  update(t) -> PATCH `wiki-pages/${this.wikiPageId}`  body:t
+  forceDelete() -> DELETE `/wiki-pages/${this.wikiPageId}/force`
+  restore() -> PATCH `/wiki-pages/${this.wikiPageId}/restore`
+  getVersion() -> GET `wiki-pages/${this.wikiPageId}/version`
+  duplicate(t) -> POST `wiki-pages/${this.wikiPageId}/duplicate`  body:t
+[this.api=t]
+  createNovel(t) -> POST "novels"  body:t
+  getPublicNovels(t={},e) -> GET "/novels"  body:{...e,params:t}
+  getNovelPermissionRequestLinkInfo(t,e) -> GET `/novels/permission-request-links/${t}`  body:e
+  createNovelPermissionAccessRequest(t) -> POST `/novels/permission-request-links/${t}/requests`
+  getMuvelStatistics() -> GET "/statistics"

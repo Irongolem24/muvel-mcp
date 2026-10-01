@@ -1,0 +1,55 @@
+{
+  "name": "muvel-mcp",
+  "version": "0.1.0",
+  "description": "Unofficial MCP server that lets AI agents (Claude Code, Codex, …) read and write Muvel (muvel.app) cloud novels",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "muvel",
+    "web-novel",
+    "claude",
+    "codex"
+  ],
+  "license": "MIT",
+  "author": "Irongolem24",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Irongolem24/muvel-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Irongolem24/muvel-mcp/issues"
+  },
+  "homepage": "https://github.com/Irongolem24/muvel-mcp#readme",
+  "type": "module",
+  "bin": {
+    "muvel-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "e2e": "tsx scripts/e2e.ts",
+    "roundtrip-check": "tsx scripts/roundtrip-check.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@napi-rs/keyring": "^2.1.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
