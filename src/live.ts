@@ -56,51 +56,89 @@ function evaluate(wsUrl: string, expression: string, timeoutMs: number): Promise
   });
 }
 
-// Runs inside the app. Returns "not-open" | "busy" | "blocked" | "refreshed" | "no-router".
-const PAGE_SCRIPT = String.raw`async (ids) => {
+// Runs inside the app (idempotent). Tracks the user's content input and the app's own
+// blocks/sync requests, so a refresh can tell whether the user has edits not yet on the server.
+const INSTALL_SCRIPT = String.raw`(() => {
+  if (window.__muvelMcpLiveV2) return "ok";
+  const st = (window.__muvelMcpLiveV2 = { lastInput: 0, lastSyncEnd: 0, inflight: 0, installedAt: Date.now() });
+  const mark = () => (st.lastInput = Date.now());
+  for (const ev of ["input", "compositionend", "paste", "cut", "drop"]) document.addEventListener(ev, mark, true);
+  const isSync = (url) => String(url).includes("/blocks/sync");
+  const done = () => { st.inflight = Math.max(0, st.inflight - 1); st.lastSyncEnd = Date.now(); };
+  const open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) { this.__muvelSync = isSync(url); return open.call(this, method, url, ...rest); };
+  const send = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function (...args) {
+    if (this.__muvelSync) { st.inflight++; this.addEventListener("loadend", done, { once: true }); }
+    return send.apply(this, args);
+  };
+  const fetch0 = window.fetch;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : input && input.url;
+    if (!isSync(url)) return fetch0.call(this, input, init);
+    st.inflight++;
+    return fetch0.call(this, input, init).finally(done);
+  };
+  return "installed";
+})()`;
+
+// Returns "not-open" | "busy" | "blocked" | "refreshed" | "no-router".
+const REFRESH_SCRIPT = String.raw`async (ids) => {
   const router = window.__reactRouterDataRouter;
   if (!router) return "no-router";
   const path = location.pathname;
   if (!ids.some((id) => path.includes(id))) return "not-open";
+  const st = window.__muvelMcpLiveV2;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Track the user's typing so we only remount after the app has synced their edits
-  // (it syncs ~1s after input stops). The listener survives across calls.
-  const st = (window.__muvelMcpLive ??= { lastInput: 0, installedAt: Date.now() });
-  if (!st.listening) {
-    const mark = () => (st.lastInput = Date.now());
-    for (const ev of ["input", "keydown", "compositionupdate", "paste", "cut"]) document.addEventListener(ev, mark, true);
-    st.listening = true;
-  }
-  const quietFor = () => Date.now() - Math.max(st.lastInput, st.installedAt);
+  // Safe to remount once every user edit has reached the server: no sync in flight and no
+  // input since the last sync finished. Input that never syncs (typed then undone) counts as
+  // settled after 2.5s. Edits made before tracking started are caught by the leave guard below.
+  const settled = () => {
+    const now = Date.now();
+    if (st.inflight > 0) return false;
+    return st.lastInput === 0 || st.lastSyncEnd >= st.lastInput || now - st.lastInput > 2500;
+  };
   const deadline = Date.now() + 15000;
-  while (quietFor() < 2500) {
-    if (Date.now() > deadline) return "busy";
-    await new Promise((r) => setTimeout(r, 200));
-  }
+  for (let attempt = 0; ; attempt++) {
+    while (!settled()) {
+      if (Date.now() > deadline) return "busy";
+      await sleep(50);
+    }
 
-  const scrollers = [...document.querySelectorAll("*")]
-    .filter((e) => e.scrollHeight > e.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(e).overflowY))
-    .map((e) => ({ cls: e.className, top: e.scrollTop }));
-  const docTop = document.scrollingElement ? document.scrollingElement.scrollTop : 0;
+    const scrollers = [...document.querySelectorAll("*")]
+      .filter((e) => e.scrollHeight > e.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(e).overflowY))
+      .map((e) => ({ cls: e.className, top: e.scrollTop }));
+    const docTop = document.scrollingElement ? document.scrollingElement.scrollTop : 0;
 
-  await router.navigate("/", { replace: true });
-  const blocked = [...router.state.blockers.values()].filter((b) => b.state === "blocked");
-  if (blocked.length || location.pathname === path) {
-    // The app refused to leave (unsynced edits): cancel quietly and leave the screen as is.
-    blocked.forEach((b) => b.reset && b.reset());
-    return "blocked";
-  }
-  await router.navigate(path, { replace: true, preventScrollReset: true });
+    await router.navigate("/", { replace: true });
+    const blocked = [...router.state.blockers.values()].filter((b) => b.state === "blocked");
+    if (blocked.length || location.pathname === path) {
+      // The app refused to leave (unsynced edits). Cancel quietly, let it sync, try again.
+      blocked.forEach((b) => b.reset && b.reset());
+      if (attempt >= 2 || Date.now() > deadline) return "blocked";
+      st.lastInput = Math.max(st.lastInput, Date.now());
+      continue;
+    }
+    await router.navigate(path, { replace: true, preventScrollReset: true });
 
-  for (let i = 0; i < 50 && !document.querySelector("[contenteditable=true]"); i++) await new Promise((r) => setTimeout(r, 100));
-  await new Promise((r) => requestAnimationFrame(() => r()));
-  for (const s of scrollers) {
-    const el = [...document.querySelectorAll("*")].find((e) => e.className === s.cls && e.scrollHeight > e.clientHeight + 20);
-    if (el) el.scrollTop = s.top;
+    for (let i = 0; i < 100 && !document.querySelector("[contenteditable=true]"); i++) await sleep(20);
+    await new Promise((r) => requestAnimationFrame(() => r()));
+    for (const s of scrollers) {
+      const el = [...document.querySelectorAll("*")].find((e) => e.className === s.cls && e.scrollHeight > e.clientHeight + 20);
+      if (el) el.scrollTop = s.top;
+    }
+    if (document.scrollingElement) document.scrollingElement.scrollTop = docTop;
+    return "refreshed";
   }
-  if (document.scrollingElement) document.scrollingElement.scrollTop = docTop;
-  return "refreshed";
 }`;
+
+/** Install input/sync tracking in the app ahead of a write. Never throws. */
+export async function primeApp(): Promise<void> {
+  for (const page of await appPages()) {
+    await evaluate(page.webSocketDebuggerUrl, INSTALL_SCRIPT, 5_000).catch(() => {});
+  }
+}
 
 /**
  * If the Muvel app is showing a page whose path contains any of `ids`, remount it so the
@@ -112,7 +150,8 @@ export async function refreshApp(ids: string[]): Promise<string> {
   const results: unknown[] = [];
   for (const page of pages) {
     try {
-      results.push(await evaluate(page.webSocketDebuggerUrl, `(${PAGE_SCRIPT})(${JSON.stringify(ids)})`, 25_000));
+      await evaluate(page.webSocketDebuggerUrl, INSTALL_SCRIPT, 5_000);
+      results.push(await evaluate(page.webSocketDebuggerUrl, `(${REFRESH_SCRIPT})(${JSON.stringify(ids)})`, 25_000));
     } catch {
       // A failed refresh must never turn a successful save into an error.
     }

@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { MuvelClient } from "./client.js";
+import { primeApp } from "./live.js";
 import { registerTools } from "./tools.js";
 
 const readOnly = process.env.MUVEL_READ_ONLY === "1";
@@ -24,3 +25,4 @@ const server = new McpServer(
 
 registerTools(server, new MuvelClient(), { readOnly });
 await server.connect(new StdioServerTransport());
+void primeApp();

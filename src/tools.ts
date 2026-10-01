@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { diffBlocks, isBlankBlock, plainLength, renderDoc, resolveBlockId, shortId, splitLines, trailingBlankCount, type DocKind } from "./blocks.js";
 import type { MuvelClient } from "./client.js";
-import { refreshApp } from "./live.js";
+import { primeApp, refreshApp } from "./live.js";
 import type { Block, Episode, WikiPage } from "./types.js";
 
 const EPISODE_TYPES: Record<number, string> = {
@@ -27,6 +27,8 @@ const ok = (text: string): ToolResult => ({ content: [{ type: "text", text }] })
 
 function guard<A>(fn: (args: A) => Promise<string>) {
   return async (args: A): Promise<ToolResult> => {
+    // Start tracking the user's typing in the app early, so a later write can refresh at once.
+    void primeApp();
     try {
       return ok(await fn(args));
     } catch (err) {
@@ -388,8 +390,11 @@ export function registerTools(server: McpServer, api: MuvelClient, opts: { readO
     const { delta, summary } = diffBlocks(loaded.blocks, lines, kind);
     if (!delta.length) return "변경 사항이 없습니다.";
     // Snapshot first (it doesn't bump contentVersion) so the re-check sits right before the sync.
-    const snapMsg = await snapshotBefore(isEp ? "episodes" : "wiki-pages", id, loaded.blocks, opts.what);
-    const latest = isEp ? (await api.episodeVersion(id)).contentVersion : (await api.wikiPage(id)).contentVersion;
+    // Snapshot and version re-check in parallel (a snapshot doesn't bump contentVersion).
+    const [snapMsg, latest] = await Promise.all([
+      snapshotBefore(isEp ? "episodes" : "wiki-pages", id, loaded.blocks, opts.what),
+      isEp ? api.episodeVersion(id).then((v) => v.contentVersion) : api.wikiPage(id).then((w) => w.contentVersion),
+    ]);
     if (latest !== loaded.version) throw versionMismatch(loaded.version, latest ?? -1);
     let res: { newContentVersion: number; shouldRefetch?: boolean };
     try {
