@@ -54,13 +54,22 @@ test("deletion removes only that block", () => {
 });
 
 test("block types round-trip through text", () => {
-  const blocks = [blk("a", "지문", 0), blk("b", "인용", 1, "quote"), blk("c", "", 2, "divider"), blk("d", "메모", 3, "comment")];
+  const blocks = [blk("a", "지문", 0), blk("c", "", 1, "divider"), blk("d", "메모", 2, "comment")];
   const text = renderDoc(blocks, "episode");
-  assert.equal(text, "지문\n> 인용\n---\n// 메모");
+  assert.equal(text, "지문\n---\n// 메모");
   const { delta } = diffBlocks(blocks, text.split("\n"), "episode");
   assert.equal(delta.length, 0);
   const fresh = apply([], diffBlocks([], text.split("\n"), "episode").delta);
-  assert.deepEqual(fresh.map((b) => b.blockType), ["describe", "quote", "divider", "comment"]);
+  assert.deepEqual(fresh.map((b) => b.blockType), ["describe", "divider", "comment"]);
+});
+
+test("episodes never get 'quote' blocks, which crash the Muvel editor", () => {
+  const created = apply([], diffBlocks([], ["> 장부에 적힌 글", "지문"], "episode").delta);
+  assert.deepEqual(created.map((b) => [b.blockType, b.content[0]?.text]), [["describe", "> 장부에 적힌 글"], ["describe", "지문"]]);
+  // An existing quote block is repaired to describe even when its text is unchanged.
+  const legacy = [blk("q", "장부", 0, "quote"), blk("a", "지문", 1)];
+  const { delta } = diffBlocks(legacy, renderDoc(legacy, "episode").split("\n"), "episode");
+  assert.deepEqual(delta.map((d) => [d.id, d.action, "blockType" in d ? d.blockType : undefined]), [["q", "update", "describe"]]);
 });
 
 test("hard breaks render as <br> and parse back", () => {
@@ -133,9 +142,9 @@ test("wiki list blocks show their nested text and are read-only", () => {
 test("plain paragraphs that look like markup are escaped and keep their type", () => {
   const blocks = [blk("a", "---", 0), blk("b", "> 아님", 1), blk("c", "// 주석 아님", 2), blk("d", "\\역슬래시", 3)];
   const text = renderDoc(blocks, "episode");
-  assert.equal(text, "\\---\n\\> 아님\n\\// 주석 아님\n\\\\역슬래시");
+  assert.equal(text, "\\---\n> 아님\n\\// 주석 아님\n\\\\역슬래시");
   assert.equal(diffBlocks(blocks, text.split("\n"), "episode").delta.length, 0);
-  const after = apply(blocks, diffBlocks(blocks, ["\\---", "\\> 아님!", "\\// 주석 아님", "\\\\역슬래시"], "episode").delta);
+  const after = apply(blocks, diffBlocks(blocks, ["\\---", "> 아님!", "\\// 주석 아님", "\\\\역슬래시"], "episode").delta);
   assert.deepEqual(sortBlocks(after).map((b) => [b.blockType, b.content[0]?.text]), [
     ["describe", "---"],
     ["describe", "> 아님!"],

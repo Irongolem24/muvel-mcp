@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { Block, DeltaBlock, InlineNode } from "./types.js";
 
 // Text format exchanged with agents: one line per block.
-//   episode:  describe → plain text, quote → "> ", comment → "// ", divider → "---"
+//   episode:  describe → plain text, comment → "// ", divider → "---"
+//             ("quote" exists in Muvel's enum but the episode editor can't render it and
+//             crashes, so it is never written and existing ones are turned into describe.)
 //   wiki:     paragraph → plain text, h1..h6 → "#".."######", blockquote → "> "
 //   read-only blocks (images, tables, lists) → "[이미지:abcd1234]", "[표:abcd1234] …", "[목록:abcd1234] …"
 // A hard line break inside a block is written as "<br>". A plain paragraph whose text would
@@ -68,7 +70,6 @@ const plainType = (kind: DocKind) => (kind === "episode" ? "describe" : "paragra
 function parseMarked(line: string, kind: DocKind): ParsedLine | null {
   if (kind === "episode") {
     if (line === "---") return { blockType: "divider", content: [] };
-    if (line.startsWith("> ")) return { blockType: "quote", content: textToInline(line.slice(2)) };
     if (line.startsWith("// ")) return { blockType: "comment", content: textToInline(line.slice(3)) };
     return null;
   }
@@ -91,8 +92,6 @@ export function renderBlock(block: Block, kind: DocKind): string {
   if (label) return `[${label}:${shortId(block.id)}]${text ? ` ${text}` : ""}`;
   if (kind === "episode") {
     switch (block.blockType) {
-      case "quote":
-        return `> ${text}`;
       case "comment":
         return `// ${text}`;
       case "divider":
@@ -275,7 +274,10 @@ export function diffBlocks(
 
   const emitKeep = (oi: number, ni: number) => {
     summary.kept++;
-    if (old[oi].order !== ni) delta.push({ id: old[oi].id, action: "update", date, order: ni });
+    const ob = old[oi];
+    // Unchanged text, but a block type the editor can't render is repaired in passing.
+    const repair = kind === "episode" && ob.blockType === "quote" ? { blockType: "describe" } : {};
+    if (ob.order !== ni || "blockType" in repair) delta.push({ id: ob.id, action: "update", date, order: ni, ...repair });
   };
   const emitGap = (oFrom: number, oTo: number, nFrom: number, nTo: number) => {
     // Read-only old blocks in a changed region were removed by the agent; the rest pair up.
