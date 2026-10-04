@@ -90,6 +90,9 @@ const REFRESH_SCRIPT = String.raw`async (ids) => {
   if (!router) return "no-router";
   const path = location.pathname;
   if (!ids.some((id) => path.includes(id))) return "not-open";
+  // Only touch a healthy editor. On an error screen the app's state may be broken, and a
+  // remount there once made the app save an empty document over the server copy.
+  if (!document.querySelector("[contenteditable=true]")) return "unhealthy";
   const st = window.__muvelMcpLiveV2;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
